@@ -30,7 +30,7 @@ include( $ENV{jedi_cmake_ROOT}/share/jedicmake/Functions/git_functions.cmake )
 ecbuild_bundle( PROJECT oops            GIT "https://github.com/jcsda/oops.git"            UPDATE TAG 6b49362 )
 ecbuild_bundle( PROJECT saber           GIT "https://github.com/jcsda/saber.git"           UPDATE TAG 4b1022a )
 ecbuild_bundle( PROJECT ioda            GIT "https://github.com/jcsda/ioda.git"            UPDATE TAG 6f51577 )
-#ecbuild_bundle( PROJECT ioda-converters GIT "https://github.com/jcsda/ioda-converters.git" UPDATE TAG dfd9c51 )
+ecbuild_bundle( PROJECT ioda-converters GIT "https://github.com/jcsda/ioda-converters.git" UPDATE TAG dfd9c51 )
 ecbuild_bundle( PROJECT ufo             GIT "https://github.com/jcsda/ufo.git"             UPDATE TAG 2e69e83 )
 ecbuild_bundle( PROJECT genericMarine   SOURCE ../)
 
