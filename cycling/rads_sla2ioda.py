@@ -99,7 +99,7 @@ class radsSsha2ioda(object):
         ncd = nc.Dataset(self.file_input)
         nlocs = ncd.dimensions['time'].size
         self.dimDict = {'Location': nlocs}
-        self.varDims = {obsvars[0][0]: ['Location']}
+        self.varDims = {obsvars[0]: ['Location']}
 
         # get the metaData variables' data and deal with the special case of time_mjd conversion
         for (locKeyIoda, dtypestr, _, locKeyRads) in locationKeyList:
