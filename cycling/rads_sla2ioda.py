@@ -6,6 +6,11 @@
 # This software is licensed under the terms of the Apache Licence Version 2.0
 # which can be obtained at http://www.apache.org/licenses/LICENSE-2.0.
 #
+# usage example:
+# % rads_sla2ioda.py -s 2016020 -e 2016022  \
+#       -i /glade/p/univ/umcp0009/lgchen/data/OISSH_NOAA/fromEric/link  \
+#       -o /glade/p/univ/umcp0009/lgchen/data/OISSH_NOAA/fromEric/toIODA
+
 
 from __future__ import print_function
 import sys
@@ -13,7 +18,7 @@ import os
 import argparse
 import netCDF4 as nc
 import numpy as np
-from datetime import datetime, timedelta
+import datetime
 import dateutil.parser
 from pathlib import Path
 
@@ -43,8 +48,8 @@ locationKeyList = [
 meta_keys = [m_item[0] for m_item in locationKeyList]
 
 iso8601_string = locationKeyList[meta_keys.index('dateTime')][2]
-epoch = datetime.fromisoformat(iso8601_string[14:-1])
-refTimeRads = datetime.fromisoformat("1858-11-17T00:00:00")
+epoch = datetime.datetime.fromisoformat(iso8601_string[14:-1])
+refTimeRads = datetime.datetime.fromisoformat("1858-11-17T00:00:00")
 
 metaDataName = iconv.MetaDataName()
 obsValName = iconv.OvalName()
@@ -107,7 +112,7 @@ class radsSsha2ioda(object):
                 time_offset = []
                 for i in range(nlocs):
                     time_offset.append(np.int64(round((refTimeRads 
-                        + timedelta(days=np.float64(ncd.variables[locKeyRads][i])) 
+                        + datetime.timedelta(days=np.float64(ncd.variables[locKeyRads][i])) 
                         - epoch).total_seconds())))
                 self.data[(locKeyIoda, metaDataName)] = np.array(time_offset, dtype=np.int64)
             else:
@@ -129,28 +134,58 @@ class radsSsha2ioda(object):
 
 
 def main():
+    sats = ['c2', 'j2', 'sa']
+
     desc = 'Read sea level anomaly (SLA) observations file(s) and convert them to IODA format (SSHA) for use in JEDI system.'
     parser = argparse.ArgumentParser(description=desc)
 
     parser.add_argument(
-        '-i', '--input', help="name of RADS observation input file(s)",
+        '-s', '--start', help="start date of data for conversion in the form of YYYYDOY or YYYYMMDD", 
         type=str, required=True, default=None)
     parser.add_argument(
-        '-o', '--output', help="path of ioda output file",
+        '-e', '--end', help="end date of data for conversion in the form of YYYYDOY or YYYYMMDD",
         type=str, required=True, default=None)
     parser.add_argument(
-        '-d', '--date', help="file date", metavar="YYYYMMDDHH", 
+        '-i', '--input_directory', help="input directory",
+        type=str, required=True)
+    parser.add_argument(
+        '-o', '--output_directory', help="output directory",
         type=str, required=True)
 
     args = parser.parse_args()
-    fdate = datetime.strptime(args.date, '%Y%m%d%H')
 
-    # Read in the sla data and convert them to IODA format:w
-    obs = radsSsha2ioda(args.input, fdate)
+    if len(args.start) == 8:  # YYYYMMDD
+        st_year, st_mon, st_day = int(args.start[0:4]), int(args.start[4:6]), int(args.start[6:8])
+        jday_st = datetime.date(st_year, st_mon, st_day)
+    elif len(args.start)  == 7:  # YYYYDOY
+        st_year, st_doy = int(args.start[0:4]), int(args.start[4:7])
+        jday_st = datetime.date(st_year, 1, 1) + datetime.timedelta(days=st_doy-1)
+    else:
+        sys.exit('Error: invalid start date')
 
-    # Write out the IODA output file.
-    writer = iconv.IodaWriter(args.output, locationKeyList, obs.dimDict)
-    writer.BuildIoda(obs.data, obs.varDims, obs.varAttrs, obs.globalAttrs)
+    if len(args.end) == 8:  # YYYYMMDD
+        end_year, end_mon, end_day = int(args.end[0:4]), int(args.end[4:6]), int(args.end[6:8])
+        jday_end = datetime.date(end_year, end_mon, end_day)
+    elif len(args.end)  == 7:  # YYYYDOY
+        end_year, end_doy = int(args.end[0:4]), int(args.end[4:7])
+        jday_end = datetime.date(end_year, 1, 1) + datetime.timedelta(days=end_doy-1)
+    else:
+        sys.exit('Error: invalid end date')
+
+    for sat in sats:
+        jday = jday_st
+        while jday <= jday_end:
+            fdate = datetime.datetime.combine(jday, datetime.time(12))
+            fn = sat + '_' + jday.strftime('%Y%j') + '.nc'
+            if os.path.isfile(args.input_directory + '/' + fn):
+                # Read in the sla data and convert them to IODA format
+                obs = radsSsha2ioda(args.input_directory + '/' + fn, fdate)
+
+                # Write out the IODA output file.
+                writer = iconv.IodaWriter(args.output_directory + '/' + fn, locationKeyList, obs.dimDict)
+                writer.BuildIoda(obs.data, obs.varDims, obs.varAttrs, obs.globalAttrs)
+
+            jday += datetime.timedelta(days=1)
 
 
 if __name__ == '__main__':
